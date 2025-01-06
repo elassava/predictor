@@ -18,9 +18,9 @@ def calculate_rsi(data, window=14):
 # yfinance API'sinden veri çekme fonksiyonu
 def fetch_yfinance_data(symbol='BTC-USD'):
     df = yf.download(symbol)
-    df = df[['Close', 'Volume']]
-    df['RSI'] = calculate_rsi(df['Close'])
-    df.dropna(inplace=True)
+    df = df[['Close', 'Volume']].copy()
+    df.loc[:, 'RSI'] = calculate_rsi(df['Close'])
+    df = df.dropna()
     return df
 
 # Dataset oluşturma fonksiyonu

@@ -8,6 +8,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
 import numpy as np
 
+# Gunicorn configuration
+workers = 1
+timeout = 120
+
 app = Flask(__name__)
 
 crypto_options = {
@@ -26,13 +30,17 @@ def predict():
     selected_symbol = request.form.get('symbol')
     
     # Veri işleme
-    df_daily = fetch_yfinance_data(selected_symbol)
+    df_daily = fetch_yfinance_data(selected_symbol).copy()  # Create a copy to avoid SettingWithCopyWarning
     scaler = MinMaxScaler()
-    df_daily[['Close_scaled', 'Volume_scaled', 'RSI_scaled']] = scaler.fit_transform(df_daily[['Close', 'Volume', 'RSI']])
+    
+    # Use loc to avoid warnings
+    scaled_data = scaler.fit_transform(df_daily[['Close', 'Volume', 'RSI']])
+    df_daily.loc[:, ['Close_scaled', 'Volume_scaled', 'RSI_scaled']] = scaled_data
 
-    # Noise ekleme
-    df_daily[['Close_scaled', 'Volume_scaled', 'RSI_scaled']] = add_noise_on_random_dates(
+    # Add noise using loc
+    noisy_data = add_noise_on_random_dates(
         df_daily[['Close_scaled', 'Volume_scaled', 'RSI_scaled']], noise_level=0.01, noise_days=5)
+    df_daily.loc[:, ['Close_scaled', 'Volume_scaled', 'RSI_scaled']] = noisy_data
 
     look_back = 3
     feature_columns = ['Close_scaled', 'Volume_scaled', 'RSI_scaled']
@@ -132,4 +140,6 @@ def predict():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port) 
