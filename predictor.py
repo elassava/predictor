@@ -6,22 +6,42 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import yfinance as yf
+import logging
+
+logger = logging.getLogger(__name__)
 
 # RSI hesaplama fonksiyonu
 def calculate_rsi(data, window=14):
-    delta = data.diff(1)
-    gain = delta.where(delta > 0, 0).rolling(window=window).mean()
-    loss = -delta.where(delta < 0, 0).rolling(window=window).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
+    try:
+        delta = data.diff(1)
+        gain = delta.where(delta > 0, 0).rolling(window=window).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=window).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs))
+    except Exception as e:
+        logger.error(f"Error calculating RSI: {str(e)}")
+        raise
 
 # yfinance API'sinden veri çekme fonksiyonu
 def fetch_yfinance_data(symbol='BTC-USD'):
-    df = yf.download(symbol)
-    df = df[['Close', 'Volume']].copy()
-    df.loc[:, 'RSI'] = calculate_rsi(df['Close'])
-    df = df.dropna()
-    return df
+    try:
+        logger.info(f"Fetching data for {symbol}")
+        df = yf.download(symbol, progress=False)  # Disable progress bar
+        
+        if df.empty:
+            logger.error(f"No data received for symbol {symbol}")
+            return pd.DataFrame()
+            
+        df = df[['Close', 'Volume']].copy()
+        df.loc[:, 'RSI'] = calculate_rsi(df['Close'])
+        df = df.dropna()
+        
+        logger.info(f"Successfully fetched data for {symbol}, shape: {df.shape}")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error fetching data for {symbol}: {str(e)}")
+        return pd.DataFrame()
 
 # Dataset oluşturma fonksiyonu
 def create_dataset(features, target, df, look_back=3):
